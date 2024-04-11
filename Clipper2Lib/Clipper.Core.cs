@@ -10,7 +10,9 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Numerics;
 using System.Runtime.CompilerServices;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace Clipper2Lib
 {
@@ -18,78 +20,6 @@ namespace Clipper2Lib
 	{
 		public long X;
 		public long Y;
-
-#if USINGZ
-    public long Z;
-
-    public Point64(Point64 pt)
-    {
-      X = pt.X;
-      Y = pt.Y;
-      Z = pt.Z;
-    }
-
-    public Point64(Point64 pt, double scale)
-    {
-      X = (long) Math.Round(pt.X * scale, MidpointRounding.AwayFromZero);
-      Y = (long) Math.Round(pt.Y * scale, MidpointRounding.AwayFromZero);
-      Z = (long) Math.Round(pt.Z * scale, MidpointRounding.AwayFromZero);
-    }
-    
-    public Point64(long x, long y, long z = 0)
-    {
-      X = x;
-      Y = y;
-      Z = z;
-    }
-
-    public Point64(double x, double y, double z = 0.0)
-    {
-      X = (long) Math.Round(x, MidpointRounding.AwayFromZero);
-      Y = (long) Math.Round(y, MidpointRounding.AwayFromZero);
-      Z = (long) Math.Round(z, MidpointRounding.AwayFromZero);
-    }
-
-    public Point64(PointD pt)
-    {
-      X = (long) Math.Round(pt.x, MidpointRounding.AwayFromZero);
-      Y = (long) Math.Round(pt.y, MidpointRounding.AwayFromZero);
-      Z = pt.z;
-    }
-
-    public Point64(PointD pt, double scale)
-    {
-      X = (long) Math.Round(pt.x * scale, MidpointRounding.AwayFromZero);
-      Y = (long) Math.Round(pt.y * scale, MidpointRounding.AwayFromZero);
-      Z = pt.z;
-    }
-
-    public static bool operator ==(Point64 lhs, Point64 rhs)
-    {
-      return lhs.X == rhs.X && lhs.Y == rhs.Y;
-    }
-
-    public static bool operator !=(Point64 lhs, Point64 rhs)
-    {
-      return lhs.X != rhs.X || lhs.Y != rhs.Y;
-    }
-
-    public static Point64 operator +(Point64 lhs, Point64 rhs)
-    {
-      return new Point64(lhs.X + rhs.X, lhs.Y + rhs.Y, lhs.Z + rhs.Z);
-    }
-
-    public static Point64 operator -(Point64 lhs, Point64 rhs)
-    {
-      return new Point64(lhs.X - rhs.X, lhs.Y - rhs.Y, lhs.Z - rhs.Z);
-    }
-
-    public readonly override string ToString()
-    {
-      return $"{X},{Y},{Z} "; // nb: trailing space
-    }
-
-#else
 		public Point64(Point64 pt)
 		{
 			X = pt.X;
@@ -136,6 +66,11 @@ namespace Clipper2Lib
 			return lhs.X != rhs.X || lhs.Y != rhs.Y;
 		}
 
+		public static Point64 operator /(Point64 lhs, double divider)
+		{
+			return new Point64(lhs.X / divider, lhs.Y / divider);
+		}
+
 		public static Point64 operator +(Point64 lhs, Point64 rhs)
 		{
 			return new Point64(lhs.X + rhs.X, lhs.Y + rhs.Y);
@@ -149,8 +84,6 @@ namespace Clipper2Lib
 		{
 			return $"{X},{Y} "; // nb: trailing space
 		}
-
-#endif
 		public readonly override bool Equals(object? obj)
 		{
 			if (obj != null && obj is Point64 p)
@@ -170,57 +103,6 @@ namespace Clipper2Lib
 		public double x;
 		public double y;
 
-#if USINGZ
-    public long z;
-
-    public PointD(PointD pt)
-    {
-      x = pt.x;
-      y = pt.y;
-      z = pt.z;
-    }
-
-    public PointD(Point64 pt)
-    {
-      x = pt.X;
-      y = pt.Y;
-      z = pt.Z;
-    }
-
-    public PointD(Point64 pt, double scale)
-    {
-      x = pt.X * scale;
-      y = pt.Y * scale;
-      z = pt.Z;
-    }
-
-    public PointD(PointD pt, double scale)
-    {
-      x = pt.x * scale;
-      y = pt.y * scale;
-      z = pt.z;
-    }
-
-    public PointD(long x, long y, long z = 0)
-    {
-      this.x = x;
-      this.y = y;
-      this.z = z;
-    }
-
-    public PointD(double x, double y, long z = 0)
-    {
-      this.x = x;
-      this.y = y;
-      this.z = z;
-    }
-
-    public readonly string ToString(int precision = 2)
-    {
-      return string.Format($"{{0:F{precision}}},{{1:F{precision}}},{{2:D}}", x,y,z);
-    }
-
-#else
 		public PointD(PointD pt)
 		{
 			x = pt.x;
@@ -261,8 +143,6 @@ namespace Clipper2Lib
 		{
 			return string.Format($"{{0:F{precision}}},{{1:F{precision}}}", x, y);
 		}
-
-#endif
 		public static bool operator ==(PointD lhs, PointD rhs)
 		{
 			return InternalClipper.IsAlmostZero(lhs.x - rhs.x) &&
@@ -477,6 +357,7 @@ namespace Clipper2Lib
 
 	public class Path64 : List<Point64>
 	{
+
 		public Path64(int capacity = 0) : base(capacity) { }
 		public Path64(IEnumerable<Point64> path) : base(path) { }
 		public override string ToString()
@@ -574,17 +455,7 @@ namespace Clipper2Lib
 		internal const double floatingPointTolerance = 1E-12;
 		internal const double defaultMinimumEdgeLength = 0.1;
 
-		private static readonly string
-		  precision_range_error = "Error: Precision is out of range.";
-
-#if USINGZ
-    public static Path64 SetZ(Path64 path, long Z)
-    {
-      Path64 result = new Path64(path.Count);
-      foreach (Point64 pt in path) result.Add(new Point64(pt.X, pt.Y, Z));
-      return result;
-    }
-#endif
+		private static readonly string precision_range_error = "Error: Precision is out of range.";
 
 		internal static void CheckPrecision(int precision)
 		{
@@ -656,9 +527,6 @@ namespace Clipper2Lib
 				// avoid using constructor (and rounding too) as they affect performance //664
 				ip.X = (long)(ln1a.X + t * dx1);
 				ip.Y = (long)(ln1a.Y + t * dy1);
-#if USINGZ
-        ip.Z = 0;
-#endif
 			}
 			return true;
 		}
@@ -780,6 +648,6 @@ namespace Clipper2Lib
 			return PointInPolygonResult.IsInside;
 		}
 
-	} // InternalClipper
+	}
 
-} // namespace
+}

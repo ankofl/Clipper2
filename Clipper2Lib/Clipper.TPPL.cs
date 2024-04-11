@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Clipper2Lib
 {
@@ -20,62 +21,12 @@ namespace Clipper2Lib
 		TPPL_VERTEXTYPE_MERGE = 4,
 	};
 
-	// 2D point structure.
-	public struct TPPLPoint
-	{
-		public double x;
-		public double y;
-		// User-specified vertex identifier. Note that this isn't used internally
-		// by the library, but will be faithfully copied around.
-		public int id;
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static TPPLPoint operator +(in TPPLPoint t, in TPPLPoint p)
-		{
-			TPPLPoint r;
-			r.x = t.x + p.x;
-			r.y = t.y + p.y;
-			r.id = default;
-			return r;
-		}
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static TPPLPoint operator -(in TPPLPoint t, in TPPLPoint p)
-		{
-			TPPLPoint r;
-			r.x = t.x - p.x;
-			r.y = t.y - p.y;
-			r.id = default;
-			return r;
-		}
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static TPPLPoint operator *(in TPPLPoint t, double f)
-		{
-			TPPLPoint r;
-			r.x = t.x * f;
-			r.y = t.y * f;
-			r.id = default;
-			return r;
-		}
-
-		[MethodImpl(MethodImplOptions.AggressiveInlining)]
-		public static TPPLPoint operator /(in TPPLPoint t, double f)
-		{
-			TPPLPoint r;
-			r.x = t.x / f;
-			r.y = t.y / f;
-			r.id = default;
-			return r;
-		}
-	}
-
 	// Polygon implemented as an array of points with a "hole" flag.
 	public class TPPLPoly
 	{
-		protected TPPLPoint[] points;
-		protected long numpoints;
-		protected bool hole;
+		private Point64[] points;
+		private long numpoints;
+		private bool hole;
 
 		// Constructors and destructors.
 		public TPPLPoly()
@@ -85,6 +36,13 @@ namespace Clipper2Lib
 			points = null;
 		}
 
+		public TPPLPoly(Point64[] points, bool isHole)
+		{
+			hole = isHole;
+			numpoints = points.Length;
+			this.points = points;
+		}
+
 		public TPPLPoly(TPPLPoly src)
 		{
 			hole = src.hole;
@@ -92,7 +50,7 @@ namespace Clipper2Lib
 
 			if (numpoints > 0)
 			{
-				points = new TPPLPoint[numpoints];
+				points = new Point64[numpoints];
 				Array.Copy(src.points, points, numpoints);
 			}
 		}
@@ -105,7 +63,7 @@ namespace Clipper2Lib
 
 			if (numpoints > 0)
 			{
-				points = new TPPLPoint[numpoints];
+				points = new Point64[numpoints];
 				Array.Copy(src.points, points, numpoints);
 			}
 
@@ -128,17 +86,17 @@ namespace Clipper2Lib
 			this.hole = hole;
 		}
 
-		public TPPLPoint GetPoint(long i)
+		public Point64 GetPoint(long i)
 		{
 			return points[i];
 		}
 
-		public TPPLPoint[] GetPoints()
+		public Point64[] GetPoints()
 		{
 			return points;
 		}
 
-		public TPPLPoint this[long i]
+		public Point64 this[long i]
 		{
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			get => points[i];
@@ -159,11 +117,11 @@ namespace Clipper2Lib
 		{
 			Clear();
 			this.numpoints = numpoints;
-			points = new TPPLPoint[numpoints];
+			points = new Point64[numpoints];
 		}
 
 		// Creates a triangle with points p1, p2, and p3.
-		public void Triangle(in TPPLPoint p1, in TPPLPoint p2, in TPPLPoint p3)
+		public void Triangle(in Point64 p1, in Point64 p2, in Point64 p3)
 		{
 			Init(3);
 			points[0] = p1;
@@ -193,7 +151,7 @@ namespace Clipper2Lib
 				{
 					i2 = 0;
 				}
-				area += points[i1].x * points[i2].y - points[i1].y * points[i2].x;
+				area += points[i1].X * points[i2].Y - points[i1].Y * points[i2].X;
 			}
 			if (area > 0)
 			{
@@ -231,13 +189,13 @@ namespace Clipper2Lib
 
 	public class TPPLPartition
 	{
-		protected class PartitionVertex
+		private class PartitionVertex
 		{
 			public bool isActive;
 			public bool isConvex;
 			public bool isEar;
 
-			public TPPLPoint p;
+			public Point64 p;
 			public double angle;
 			public PartitionVertex previous;
 			public PartitionVertex next;
@@ -249,51 +207,16 @@ namespace Clipper2Lib
 			}
 		};
 
-		protected struct MonotoneVertex
-		{
-			public TPPLPoint p;
-			public long previous;
-			public long next;
-		};
-
-		protected class VertexSorter : IComparer<long>
-		{
-			MonotoneVertex[] vertices;
-
-			public VertexSorter(MonotoneVertex[] v)
-			{ vertices = v; }
-
-			// Sorts in the falling order of y values, if y is equal, x is used instead.
-			public int Compare(long index1, long index2)
-			{
-				if (vertices[index1].p.y > vertices[index2].p.y)
-				{
-					return -1;
-				}
-				else if (vertices[index1].p.y == vertices[index2].p.y)
-				{
-					if (vertices[index1].p.x > vertices[index2].p.x)
-					{
-						return -1;
-					}
-					else if (vertices[index1].p.x == vertices[index2].p.x)
-					{
-						return 0;
-					}
-				}
-				return 1;
-			}
-		}
-		protected struct Diagonal
+		private struct Diagonal
 		{
 			public long index1;
 			public long index2;
 		};
 
-		protected class DiagonalList : LinkedList<Diagonal> { };
+		private class DiagonalList : LinkedList<Diagonal> { };
 
 		// Dynamic programming state for minimum-weight triangulation.
-		protected struct DPState
+		private struct DPState
 		{
 			public bool visible;
 			public double weight;
@@ -301,7 +224,7 @@ namespace Clipper2Lib
 		};
 
 		// Dynamic programming state for convex partitioning.
-		protected struct DPState2
+		private struct DPState2
 		{
 			public bool visible;
 			public long weight;
@@ -309,16 +232,15 @@ namespace Clipper2Lib
 		};
 
 		// Edge that intersects the scanline.
-		protected struct ScanLineEdge
+		private struct ScanLineEdge
 		{
-			public long index;
-			public TPPLPoint p1;
-			public TPPLPoint p2;
+			public Point64 p1;
+			public Point64 p2;
 
-			public static bool IsConvex(in TPPLPoint p1, in TPPLPoint p2, in TPPLPoint p3)
+			public static bool IsConvex(in Point64 p1, in Point64 p2, in Point64 p3)
 			{
 				double tmp;
-				tmp = (p3.y - p1.y) * (p2.x - p1.x) - (p3.x - p1.x) * (p2.y - p1.y);
+				tmp = (p3.Y - p1.Y) * (p2.X - p1.X) - (p3.X - p1.X) * (p2.Y - p1.Y);
 				if (tmp > 0)
 				{
 					return true;
@@ -331,19 +253,19 @@ namespace Clipper2Lib
 			[MethodImpl(MethodImplOptions.AggressiveInlining)]
 			public static bool operator <(in ScanLineEdge t, in ScanLineEdge other)
 			{
-				if (other.p1.y == other.p2.y)
+				if (other.p1.Y == other.p2.Y)
 				{
-					if (t.p1.y == t.p2.y)
+					if (t.p1.Y == t.p2.Y)
 					{
-						return (t.p1.y < other.p1.y);
+						return (t.p1.Y < other.p1.Y);
 					}
 					return IsConvex(t.p1, t.p2, other.p1);
 				}
-				else if (t.p1.y == t.p2.y)
+				else if (t.p1.Y == t.p2.Y)
 				{
 					return !IsConvex(other.p1, other.p2, t.p1);
 				}
-				else if (t.p1.y < other.p1.y)
+				else if (t.p1.Y < other.p1.Y)
 				{
 					return !IsConvex(other.p1, other.p2, t.p1);
 				}
@@ -361,10 +283,10 @@ namespace Clipper2Lib
 		};
 
 		// Standard helper functions.
-		protected bool IsConvex(in TPPLPoint p1, in TPPLPoint p2, in TPPLPoint p3)
+		private bool IsConvex(in Point64 p1, in Point64 p2, in Point64 p3)
 		{
 			double tmp;
-			tmp = (p3.y - p1.y) * (p2.x - p1.x) - (p3.x - p1.x) * (p2.y - p1.y);
+			tmp = (p3.Y - p1.Y) * (p2.X - p1.X) - (p3.X - p1.X) * (p2.Y - p1.Y);
 			if (tmp > 0)
 			{
 				return true;
@@ -374,10 +296,10 @@ namespace Clipper2Lib
 				return false;
 			}
 		}
-		protected bool IsReflex(in TPPLPoint p1, in TPPLPoint p2, in TPPLPoint p3)
+		private bool IsReflex(in Point64 p1, in Point64 p2, in Point64 p3)
 		{
 			double tmp;
-			tmp = (p3.y - p1.y) * (p2.x - p1.x) - (p3.x - p1.x) * (p2.y - p1.y);
+			tmp = (p3.Y - p1.Y) * (p2.X - p1.X) - (p3.X - p1.X) * (p2.Y - p1.Y);
 			if (tmp < 0)
 			{
 				return true;
@@ -387,7 +309,7 @@ namespace Clipper2Lib
 				return false;
 			}
 		}
-		protected bool IsInside(in TPPLPoint p1, in TPPLPoint p2, in TPPLPoint p3, in TPPLPoint p)
+		private bool IsInside(in Point64 p1, in Point64 p2, in Point64 p3, in Point64 p)
 		{
 			if (IsConvex(p1, p, p2))
 			{
@@ -404,7 +326,7 @@ namespace Clipper2Lib
 			return true;
 		}
 
-		protected bool InCone(in TPPLPoint p1, in TPPLPoint p2, in TPPLPoint p3, in TPPLPoint p)
+		private bool InCone(in Point64 p1, in Point64 p2, in Point64 p3, in Point64 p)
 		{
 			bool convex;
 
@@ -435,9 +357,9 @@ namespace Clipper2Lib
 				return false;
 			}
 		}
-		protected bool InCone(PartitionVertex v, in TPPLPoint p)
+		private bool InCone(PartitionVertex v, in Point64 p)
 		{
-			TPPLPoint p1, p2, p3;
+			Point64 p1, p2, p3;
 
 			p1 = v.previous.p;
 			p2 = v.p;
@@ -447,43 +369,43 @@ namespace Clipper2Lib
 		}
 
 		// Checks if two lines intersect.
-		protected bool Intersects(in TPPLPoint p11, in TPPLPoint p12, in TPPLPoint p21, in TPPLPoint p22)
+		private bool Intersects(in Point64 p11, in Point64 p12, in Point64 p21, in Point64 p22)
 		{
-			if ((p11.x == p21.x) && (p11.y == p21.y))
+			if ((p11.X == p21.X) && (p11.Y == p21.Y))
 			{
 				return false;
 			}
-			if ((p11.x == p22.x) && (p11.y == p22.y))
+			if ((p11.X == p22.X) && (p11.Y == p22.Y))
 			{
 				return false;
 			}
-			if ((p12.x == p21.x) && (p12.y == p21.y))
+			if ((p12.X == p21.X) && (p12.Y == p21.Y))
 			{
 				return false;
 			}
-			if ((p12.x == p22.x) && (p12.y == p22.y))
+			if ((p12.X == p22.X) && (p12.Y == p22.Y))
 			{
 				return false;
 			}
 
-			TPPLPoint v1ort, v2ort, v;
+			Point64 v1ort, v2ort, v;
 			double dot11, dot12, dot21, dot22;
 
-			v1ort.x = p12.y - p11.y;
-			v1ort.y = p11.x - p12.x;
+			v1ort.X = p12.Y - p11.Y;
+			v1ort.Y = p11.X - p12.X;
 
-			v2ort.x = p22.y - p21.y;
-			v2ort.y = p21.x - p22.x;
+			v2ort.X = p22.Y - p21.Y;
+			v2ort.Y = p21.X - p22.X;
 
 			v = p21 - p11;
-			dot21 = v.x * v1ort.x + v.y * v1ort.y;
+			dot21 = v.X * v1ort.X + v.Y * v1ort.Y;
 			v = p22 - p11;
-			dot22 = v.x * v1ort.x + v.y * v1ort.y;
+			dot22 = v.X * v1ort.X + v.Y * v1ort.Y;
 
 			v = p11 - p21;
-			dot11 = v.x * v2ort.x + v.y * v2ort.y;
+			dot11 = v.X * v2ort.X + v.Y * v2ort.Y;
 			v = p12 - p21;
-			dot12 = v.x * v2ort.x + v.y * v2ort.y;
+			dot12 = v.X * v2ort.X + v.Y * v2ort.Y;
 
 			if (dot11 * dot12 > 0)
 			{
@@ -497,71 +419,66 @@ namespace Clipper2Lib
 			return true;
 		}
 
-		protected TPPLPoint Normalize(in TPPLPoint p)
+		private Point64 Normalize(in Point64 p)
 		{
-			TPPLPoint r;
-			double n = Math.Sqrt(p.x * p.x + p.y * p.y);
+			Point64 r;
+			double n = Math.Sqrt(p.X * p.X + p.Y * p.Y);
 			if (n != 0)
 			{
 				r = p / n;
 			}
 			else
 			{
-				r.x = 0;
-				r.y = 0;
+				r.X = 0;
+				r.Y = 0;
 			}
-			r.id = default;
 			return r;
 		}
-		protected double Distance(in TPPLPoint p1, in TPPLPoint p2)
+		private double Distance(in Point64 p1, in Point64 p2)
 		{
 			double dx, dy;
-			dx = p2.x - p1.x;
-			dy = p2.y - p1.y;
+			dx = p2.X - p1.X;
+			dy = p2.Y - p1.Y;
 			return (Math.Sqrt(dx * dx + dy * dy));
 		}
 
 		// Helper functions for Triangulate_EC.
-		protected void UpdateVertexReflexity(PartitionVertex v)
+		private void UpdateVertexReflexity(PartitionVertex v)
 		{
 			PartitionVertex v1 = null, v3 = null;
 			v1 = v.previous;
 			v3 = v.next;
 			v.isConvex = !IsReflex(v1.p, v.p, v3.p);
 		}
-		protected void UpdateVertex(PartitionVertex v, PartitionVertex[] vertices, long numvertices)
+		private void UpdateVertex(PartitionVertex v, PartitionVertex[] vertices, long numvertices)
 		{
-			long i;
-			PartitionVertex v3 = null;
-			TPPLPoint vec1, vec3;
+			PartitionVertex prev = v.previous;
+			PartitionVertex next = v.next;
 
-			PartitionVertex v1 = v.previous;
-			v3 = v.next;
+			v.isConvex = IsConvex(prev.p, v.p, next.p);
 
-			v.isConvex = IsConvex(v1.p, v.p, v3.p);
-
-			vec1 = Normalize(v1.p - v.p);
-			vec3 = Normalize(v3.p - v.p);
-			v.angle = vec1.x * vec3.x + vec1.y * vec3.y;
+			var vec1 = Normalize(prev.p - v.p);
+			var vec3 = Normalize(next.p - v.p);
+			v.angle = vec1.X * vec3.X + vec1.Y * vec3.Y;
 
 			if (v.isConvex)
 			{
 				v.isEar = true;
-				for (i = 0; i < numvertices; i++)
+				for (long i = 0; i < numvertices; i++)
 				{
-					if ((vertices[i].p.x == v.p.x) && (vertices[i].p.y == v.p.y))
+					if ((vertices[i].p.X == v.p.X) && (vertices[i].p.Y == v.p.Y))
 					{
 						continue;
 					}
-					if ((vertices[i].p.x == v1.p.x) && (vertices[i].p.y == v1.p.y))
+					if ((vertices[i].p.X == prev.p.X) && (vertices[i].p.Y == prev.p.Y))
 					{
 						continue;
 					}
-					if ((vertices[i].p.x == v3.p.x) && (vertices[i].p.y == v3.p.y))
+					if ((vertices[i].p.X == next.p.X) && (vertices[i].p.Y == next.p.Y))
 					{
 						continue;
 					}
-					if (IsInside(v1.p, v.p, v3.p, vertices[i].p))
+					if (IsInside(prev.p, v.p, next.p, vertices[i].p))
 					{
 						v.isEar = false;
 						break;
@@ -575,7 +492,7 @@ namespace Clipper2Lib
 		}
 
 		// Helper functions for ConvexPartition_OPT.
-		protected void UpdateState(long a, long b, long w, long i, long j, DPState2[][] dpstates)
+		private void UpdateState(long a, long b, long w, long i, long j, DPState2[][] dpstates)
 		{
 			Diagonal newdiagonal;
 			DiagonalList pairs = null;
@@ -610,7 +527,7 @@ namespace Clipper2Lib
 				pairs.AddFirst(newdiagonal);
 			}
 		}
-		protected void TypeA(long i, long j, long k, PartitionVertex[] vertices, DPState2[][] dpstates)
+		private void TypeA(long i, long j, long k, PartitionVertex[] vertices, DPState2[][] dpstates)
 		{
 			DiagonalList pairs = null;
 			LinkedListNode<Diagonal> iter, lastiter;
@@ -666,7 +583,7 @@ namespace Clipper2Lib
 			}
 			UpdateState(i, k, w, top, j, dpstates);
 		}
-		protected void TypeB(long i, long j, long k, PartitionVertex[] vertices, DPState2[][] dpstates)
+		private void TypeB(long i, long j, long k, PartitionVertex[] vertices, DPState2[][] dpstates)
 		{
 			DiagonalList pairs = null;
 			LinkedListNode<Diagonal> iter, lastiter;
@@ -726,15 +643,15 @@ namespace Clipper2Lib
 		}
 
 		// Helper functions for MonotonePartition.
-		protected bool Below(in TPPLPoint p1, in TPPLPoint p2)
+		private bool Below(in Point64 p1, in Point64 p2)
 		{
-			if (p1.y < p2.y)
+			if (p1.Y < p2.Y)
 			{
 				return true;
 			}
-			else if (p1.y == p2.y)
+			else if (p1.Y == p2.Y)
 			{
-				if (p1.x < p2.x)
+				if (p1.X < p2.X)
 				{
 					return true;
 				}
@@ -761,9 +678,9 @@ namespace Clipper2Lib
 			LinkedList<TPPLPoly> polys;
 			LinkedListNode<TPPLPoly> holeiter = default, polyiter = default, iter, iter2;
 			int i, i2, holepointindex = default, polypointindex = default;
-			TPPLPoint holepoint, polypoint, bestpolypoint = default;
-			TPPLPoint linep1, linep2;
-			TPPLPoint v1, v2;
+			Point64 holepoint, polypoint, bestpolypoint = default;
+			Point64 linep1, linep2;
+			Point64 v1, v2;
 			TPPLPoly newpoly = new();
 			bool hasholes;
 			bool pointvisible;
@@ -810,7 +727,7 @@ namespace Clipper2Lib
 
 					for (i = 0; i < iter.Value.GetNumPoints(); i++)
 					{
-						if (iter.Value.GetPoint(i).x > holeiter.Value.GetPoint(holepointindex).x)
+						if (iter.Value.GetPoint(i).X > holeiter.Value.GetPoint(holepointindex).X)
 						{
 							holeiter = iter;
 							holepointindex = i;
@@ -832,7 +749,7 @@ namespace Clipper2Lib
 					}
 					for (i = 0; i < iter.Value.GetNumPoints(); i++)
 					{
-						if (iter.Value.GetPoint(i).x <= holepoint.x)
+						if (iter.Value.GetPoint(i).X <= holepoint.X)
 						{
 							continue;
 						}
@@ -848,7 +765,7 @@ namespace Clipper2Lib
 						{
 							v1 = Normalize(polypoint - holepoint);
 							v2 = Normalize(bestpolypoint - holepoint);
-							if (v2.x > v1.x)
+							if (v2.X > v1.X)
 							{
 								continue;
 							}
@@ -931,15 +848,15 @@ namespace Clipper2Lib
 		//    triangles:
 		//       A list of triangles (result).
 		// Returns 1 on success, 0 on failure.
-		public bool Triangulate_EC(TPPLPoly poly, LinkedList<TPPLPoly> triangles)
+		public bool Triangulate_EC(TPPLPoly poly, out LinkedList<TPPLPoly> triangles)
 		{
+			triangles = new LinkedList<TPPLPoly>();
 			if (!poly.Valid())
 			{
 				return false;
 			}
 
 			long numvertices;
-			PartitionVertex[] vertices = null;
 			PartitionVertex ear = null;
 			TPPLPoly triangle = new();
 			long i, j;
@@ -957,32 +874,34 @@ namespace Clipper2Lib
 
 			numvertices = poly.GetNumPoints();
 
-			vertices = new PartitionVertex[numvertices];
-			////TODO убрать
-			//vertices[numvertices - 1] = new PartitionVertex();
-			////***
+			//
+			var vertices = new PartitionVertex[numvertices];
+			for (int init = 0; init < numvertices; init++)
+			{
+				vertices[init] = new PartitionVertex();
+				vertices[init].isActive = true;
+				vertices[init].p = poly.GetPoint(init);
+			}
+
+			long last = numvertices - 1;
 			for (i = 0; i < numvertices; i++)
 			{
-				//vertices[i] = new PartitionVertex();
-				vertices[i].isActive = true;
-				vertices[i].p = poly.GetPoint(i);
-				if (i == (numvertices - 1))
+				long next = i+1;
+				if (i == last)
 				{
-					vertices[i].next = vertices[0];
+					next = 0;
 				}
-				else
+
+				long prev = i - 1;
+				if(i == 0)
 				{
-					vertices[i].next = vertices[i + 1];
+					prev = last;
 				}
-				if (i == 0)
-				{
-					vertices[i].previous = vertices[numvertices - 1];
-				}
-				else
-				{
-					vertices[i].previous = vertices[i - 1];
-				}
+
+				vertices[i].next = vertices[next];
+				vertices[i].previous = vertices[prev];
 			}
+
 			for (i = 0; i < numvertices; i++)
 			{
 				UpdateVertex(vertices[i], vertices, numvertices);
@@ -1061,8 +980,10 @@ namespace Clipper2Lib
 		//    triangles:
 		//       A list of triangles (result).
 		// Returns 1 on success, 0 on failure.
-		public bool Triangulate_EC(LinkedList<TPPLPoly> inpolys, LinkedList<TPPLPoly> triangles)
+		public bool Triangulate_EC(LinkedList<TPPLPoly> inpolys, out LinkedList<TPPLPoly> triangles)
 		{
+			triangles = new LinkedList<TPPLPoly>();
+
 			LinkedList<TPPLPoly> outpolys = new();
 			LinkedListNode<TPPLPoly> iter;
 
@@ -1072,7 +993,7 @@ namespace Clipper2Lib
 			}
 			for (iter = outpolys.First; iter != null; iter = iter.Next)
 			{
-				if (!Triangulate_EC(iter.Value, triangles))
+				if (!Triangulate_EC(iter.Value, out triangles))
 				{
 					return false;
 				}
@@ -1099,7 +1020,7 @@ namespace Clipper2Lib
 
 			long i, j, k, gap, n;
 			DPState[][] dpstates = null;
-			TPPLPoint p1, p2, p3, p4;
+			Point64 p1, p2, p3, p4;
 			long bestvertex;
 			double weight, minweight = default, d1, d2;
 			Diagonal diagonal, newdiagonal;
@@ -1309,7 +1230,7 @@ namespace Clipper2Lib
 			LinkedListNode<TPPLPoly> iter1, iter2;
 			TPPLPoly poly1 = null, poly2 = null;
 			TPPLPoly newpoly = new();
-			TPPLPoint d1, d2, p1, p2, p3;
+			Point64 d1, d2, p1, p2, p3;
 			long i11, i12, i21 = default, i22 = default, i13, i23, j, k;
 			bool isdiagonal;
 			long numreflex;
@@ -1346,7 +1267,7 @@ namespace Clipper2Lib
 				return true;
 			}
 
-			if (!Triangulate_EC(poly, triangles))
+			if (!Triangulate_EC(poly, out triangles))
 			{
 				return false;
 			}
@@ -1371,12 +1292,12 @@ namespace Clipper2Lib
 
 						for (i21 = 0; i21 < poly2.GetNumPoints(); i21++)
 						{
-							if ((d2.x != poly2.GetPoint(i21).x) || (d2.y != poly2.GetPoint(i21).y))
+							if ((d2.X != poly2.GetPoint(i21).X) || (d2.Y != poly2.GetPoint(i21).Y))
 							{
 								continue;
 							}
 							i22 = (i21 + 1) % (poly2.GetNumPoints());
-							if ((d1.x != poly2.GetPoint(i22).x) || (d1.y != poly2.GetPoint(i22).y))
+							if ((d1.X != poly2.GetPoint(i22).X) || (d1.Y != poly2.GetPoint(i22).Y))
 							{
 								continue;
 							}
@@ -1528,7 +1449,7 @@ namespace Clipper2Lib
 				return false;
 			}
 
-			TPPLPoint p1, p2, p3, p4;
+			Point64 p1, p2, p3, p4;
 			PartitionVertex[] vertices = null;
 			DPState2[][] dpstates = null;
 			long i, j, k, n, gap;

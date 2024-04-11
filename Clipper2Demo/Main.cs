@@ -24,60 +24,89 @@ namespace Clipper2Demo
 			//TrianglesTest(true);
 			//DiamondsTest(true);
 
-			TPPLPoint[] points =
+			Point64[] points =
 			{
 				new()
 				{
-					x = 0,
-					y = 0
+					X = 0,
+					Y = 0
 				},
 				new()
 				{
-					x = 10,
-					y = 0
+					X = 10,
+					Y = 0
 				},
 				new()
 				{
-					x = 10,
-					y = 10
+					X = 10,
+					Y = 10
 				},
 				new()
 				{
-					x = 0,
-					y = 10
+					X = 0,
+					Y = 10
 				},
 				new()
 				{
-					x = 5,
-					y = 5
+					X = 1,
+					Y = 5
+				},
+			};
+			Point64[] hole =
+			{
+				new()
+				{
+					X = 3,
+					Y = 3
 				},
 				new()
 				{
-					x = 0,
-					y = 0
+					X = 3,
+					Y = 6
+				},
+				new()
+				{
+					X = 6,
+					Y = 6
+				},
+				new()
+				{
+					X = 6,
+					Y = 3
 				},
 			};
 
 
-			TPPLPoly poly = new TPPLPoly();
-			poly.Init(points.Length);
-			for (int i = 0; i < points.Length; i++)
+			Paths64 subjects = new Paths64
 			{
-				poly[i] = points[i];
+				Clipper.MakePath(points),
+			};
+
+			Paths64 clips = new Paths64
+			{
+				Clipper.MakePath(hole),
+			};
+
+			var result = Clipper.Xor(subjects, clips, FillRule.NonZero);
+
+			var polyHole = new LinkedList<TPPLPoly>();
+
+			polyHole.AddFirst(new TPPLPoly(result[0].ToArray(), false));
+			for (int i = 1; i < result.Count; i++)
+			{
+				polyHole.AddAfter(polyHole.Last, new TPPLPoly(result[i].ToArray(), true));
 			}
 
-			var orient = poly.GetOrientation();
+			bool boolean = new TPPLPartition().Triangulate_EC(polyHole, out LinkedList<TPPLPoly> triangles);
+
+			var fromTriangulate = new Paths64();
+			foreach(var tri in triangles)
+			{
+				fromTriangulate.Add(Clipper.MakePath(tri.GetPoints()));
+			}
 
 
-			TPPLPartition triangulator = new TPPLPartition();
 
-			LinkedList<TPPLPoly> triangles = new LinkedList<TPPLPoly>();
-
-			bool result = triangulator.Triangulate_EC(poly, triangles);
-			//bool result2 = triangulator.ConvexPartition_HM(poly, triangles);
-
-			Console.WriteLine("End");
-			Console.ReadKey();
 		}
 
 		public static Paths64 Polytree_Union(Paths64 subjects, FillRule fillrule)

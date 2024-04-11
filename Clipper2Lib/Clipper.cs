@@ -243,6 +243,7 @@ namespace Clipper2Lib
 			return Minkowski.Diff(pattern, path, isClosed);
 		}
 
+		private static readonly double rate = 1000 * 1000;
 		public static double Area(Path64 path)
 		{
 			// https://en.wikipedia.org/wiki/Shoelace_formula
@@ -255,7 +256,7 @@ namespace Clipper2Lib
 				a += (double)(prevPt.Y + pt.Y) * (prevPt.X - pt.X);
 				prevPt = pt;
 			}
-			return a * 0.5;
+			return a * 0.5 / rate;
 		}
 
 		public static double Area(Paths64 paths)
@@ -263,7 +264,7 @@ namespace Clipper2Lib
 			double a = 0.0;
 			foreach (Path64 path in paths)
 				a += Area(path);
-			return a;
+			return a / rate;
 		}
 
 		public static double Area(PathD path)
@@ -277,7 +278,7 @@ namespace Clipper2Lib
 				a += (prevPt.y + pt.y) * (prevPt.x - pt.x);
 				prevPt = pt;
 			}
-			return a * 0.5;
+			return a * 0.5 / rate;
 		}
 
 		public static double Area(PathsD paths)
@@ -285,7 +286,7 @@ namespace Clipper2Lib
 			double a = 0.0;
 			foreach (PathD path in paths)
 				a += Area(path);
-			return a;
+			return a / rate;
 		}
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -343,9 +344,6 @@ namespace Clipper2Lib
 			{
 				X = (long)Math.Round(pt.X * scale, MidpointRounding.AwayFromZero),
 				Y = (long)Math.Round(pt.Y * scale, MidpointRounding.AwayFromZero),
-#if USINGZ
-        Z = pt.Z
-#endif
 			};
 			return result;
 		}
@@ -357,9 +355,6 @@ namespace Clipper2Lib
 			{
 				x = pt.X * scale,
 				y = pt.Y * scale,
-#if USINGZ
-        z = pt.Z,
-#endif
 			};
 			return result;
 		}
@@ -382,13 +377,8 @@ namespace Clipper2Lib
 		{
 			if (InternalClipper.IsAlmostZero(scale - 1)) return path;
 			Path64 result = new Path64(path.Count);
-#if USINGZ
-      foreach (Point64 pt in path)
-        result.Add(new Point64(pt.X * scale, pt.Y * scale, pt.Z));
-#else
 			foreach (Point64 pt in path)
 				result.Add(new Point64(pt.X * scale, pt.Y * scale));
-#endif
 			return result;
 		}
 
@@ -609,9 +599,20 @@ namespace Clipper2Lib
 		public static Path64 MakePath(int[] arr)
 		{
 			int len = arr.Length / 2;
+			Path64 p = new(len);
+			for (int i = 0; i < len; i++)
+			{
+				p.Add(new Point64(arr[i * 2], arr[i * 2 + 1]));
+			}
+			return p;
+		}
+
+		public static Path64 MakePath(Point64[] arr)
+		{
+			int len = arr.Length;
 			Path64 p = new Path64(len);
 			for (int i = 0; i < len; i++)
-				p.Add(new Point64(arr[i * 2], arr[i * 2 + 1]));
+				p.Add(arr[i]);
 			return p;
 		}
 
@@ -632,26 +633,6 @@ namespace Clipper2Lib
 				p.Add(new PointD(arr[i * 2], arr[i * 2 + 1]));
 			return p;
 		}
-
-#if USINGZ
-    public static Path64 MakePathZ(long[] arr)
-    {
-      int len = arr.Length / 3;
-      Path64 p = new Path64(len);
-      for (int i = 0; i < len; i++)
-        p.Add(new Point64(arr[i * 3], arr[i * 3 + 1], arr[i * 3 + 2]));
-      return p;
-    }
-    public static PathD MakePathZ(double[] arr)
-    {
-      int len = arr.Length / 3;
-      PathD p = new PathD(len);
-      for (int i = 0; i < len; i++)
-        p.Add(new PointD(arr[i * 3], arr[i * 3 + 1], (long)arr[i * 3 + 2]));
-      return p;
-    }
-#endif
-
 
 		[MethodImpl(MethodImplOptions.AggressiveInlining)]
 		public static double Sqr(double value)
@@ -1174,5 +1155,5 @@ namespace Clipper2Lib
 			foreach (PolyPathD child in polytree) { ShowPolyPathStructure(child, 1); }
 		}
 
-	} // Clipper
-} // namespace
+	}
+}
